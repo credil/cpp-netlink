@@ -1,0 +1,4 @@
+PANDORA_VERSION=1.00
+BUILDNUMBER="$(shell date +%Y%m%d_%s)"
+
+

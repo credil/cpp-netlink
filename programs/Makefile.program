@@ -1,0 +1,180 @@
+# -*- makefile -*-
+
+include ${PANDORA_SRCDIR}/Makefile.ver
+include ${PANDORA_SRCDIR}/Makefile.inc
+
+LEX=flex
+BISON=bison
+RM=rm
+PROGRAMDIR?=/sbin
+
+
+INCLUDES+=-I${PANDORA_SRCDIR} -I${PANDORA_SRCDIR}/include
+CFLAGS+=${USERCOMPILE} ${PORTINCLUDE} ${INCLUDES} ${CROSSFLAGS}
+CXXFLAGS+=${USERCPPCOMPILE} ${PORTINCLUDE} ${INCLUDES} ${CROSSFLAGS}
+
+ifneq ($(BUILDENV),darwin)
+CFLAGS+= -Wall
+endif
+#CFLAGS+= -Wconversion
+#CFLAGS+= -Wmissing-prototypes
+CFLAGS+= -Wpointer-arith
+CFLAGS+= -Wcast-qual
+#CFLAGS+= -Wmissing-declarations
+CFLAGS+= -Wstrict-prototypes
+#CFLAGS+= -pedantic
+#CFLAGS+= -W
+#CFLAGS+= -Wwrite-strings
+CFLAGS+= -Wbad-function-cast
+
+LIBS?=${PROGLIBS} ${OSWLOGLIB} ${OPENSWANLIB} ${CRYPTOLIBS}
+
+CFLAGS+= ${WERROR}
+
+ifneq ($(LD_LIBRARY_PATH),)
+LDFLAGS=-L$(LD_LIBRARY_PATH)
+endif
+
+MANDIR8=$(MANTREE)/man8
+MANDIR5=$(MANTREE)/man5
+
+ifndef PROGRAMDIR
+PROGRAMDIR=${LIBEXECDIR}
+endif
+
+ifndef MANPROGPREFIX
+MANPROGPREFIX=ipsec_
+endif
+
+ifndef CONFDSUBDIR
+CONFDSUBDIR=.
+endif
+
+ifndef SOURCEDIR
+SOURCEDIR=${PROGRAM}
+endif
+
+# we can't do tests with two conditions, but we can concatenate the strings
+SHOULDWERESTART=${USE_OBJDIR}$(wildcard ../Makefile.program)
+ifeq ($(SHOULDWERESTART),true../Makefile.program)
+all programs clean install::
+	cd ${PANDORA_SRCDIR} && cd ${OBJDIRTOP}/programs/${SOURCEDIR} && $(MAKE) $@
+else
+all: ${PROGRAM}
+programs:: all
+clean::	cleanall
+install:: doinstall
+
+endif
+
+ifneq ($(PROGRAM),check)
+check:: $(PROGRAM)
+endif
+
+srcdir?=.
+
+
+ifneq ($(NOINSTALL),true)
+
+doinstall:: $(PROGRAM) $(CONFFILES) $(EXTRA8MAN) $(EXTRA5MAN) $(EXTRA5PROC) $(LIBFILES) $(CONFDFILES)
+	@mkdir -p ${DESTDIR}$(PROGRAMDIR) ${DESTDIR}$(MANDIR8) ${DESTDIR}$(MANDIR5) ${DESTDIR}$(LIBDIR) ${DESTDIR}$(CONFDIR) ${DESTDIR}$(CONFDDIR) ${DESTDIR}$(CONFDDIR)/$(CONFDSUBDIR) ${DESTDIR}$(EXAMPLECONFDIR)
+	@if [ -n "$(PROGRAM)" ]; then $(INSTALL) $(INSTBINFLAGS) $(PROGRAM) ${DESTDIR}$(PROGRAMDIR); fi
+	@$(foreach f, $(addsuffix .8, $(PROGRAM)), \
+		g=`if [ -r $f ]; then echo $f; else echo ${srcdir}/$f; fi`; \
+		$(INSTALL) $(INSTMANFLAGS) $$g ${DESTDIR}$(MANDIR8)/$(MANPROGPREFIX)$f || exit 1; \
+	)
+	@$(foreach f, $(LIBFILES), \
+		g=`if [ -r $f ]; then echo $f; else echo ${srcdir}/$f; fi`; \
+		$(INSTALL) $(INSTCONFFLAGS) $$g ${DESTDIR}$(LIBDIR)/$f || exit 1 ;\
+	)
+	@$(foreach f, $(CONFFILES), \
+		g=`if [ -r $f ]; then echo $f; else echo ${srcdir}/$f; fi`; \
+		if [ ! -f $(CONFDIR)/$f ]; then $(INSTALL) $(INSTCONFFLAGS) $$g $(CONFDIR)/$f || exit 1; fi;\
+		$(INSTALL) $(INSTCONFFLAGS) $$g ${DESTDIR}$(EXAMPLECONFDIR)/$f-sample || exit 1; \
+	)
+	@$(foreach f, $(EXCONFFILES), \
+		g=`if [ -r $f ]; then echo $f; else echo ${srcdir}/$f; fi`; \
+		$(INSTALL) $(INSTCONFFLAGS) $$g ${DESTDIR}$(EXAMPLECONFDIR)/$f-sample || exit 1; \
+	)
+
+install_file_list::
+	@if [ -n "$(PROGRAM)" ]; then echo $(PROGRAMDIR)/$(PROGRAM); fi
+	@$(foreach f, $(addsuffix .8, $(PROGRAM)), \
+		echo ${DESTDIR}$(MANDIR8)/${MANPROGPREFIX}$f; \
+	)
+	@$(foreach f, $(LIBFILES), \
+		echo ${DESTDIR}$(LIBDIR)/$f;\
+	)
+	@$(foreach f, $(CONFFILES), \
+		echo ${DESTDIR}$(CONFDIR)/$f;\
+		echo ${DESTDIR}$(EXAMPLECONFDIR)/$f-sample;\
+	)
+	@$(foreach f, $(EXCONFFILES), \
+		echo ${DESTDIR}$(EXAMPLECONFDIR)/$f-sample;\
+	)
+	@$(foreach f, $(CONFDFILES), \
+		echo ${DESTDIR}$(CONFDDIR)/${CONFDSUBDIR}/$f;\
+	)
+
+endif
+
+# set values for implicit rules.
+LOADLIBS=${OBJS}
+
+# ${LIBS} is repeated due to possible circular dependancies among libraries
+LDLIBS=${LIBS} ${USERLINK} ${LIBS} ${EXTRALIBS}
+
+${PROGRAM}: $(OBJS) ${LIBS}
+	$(CXX) $(CXXFLAGS) -o $@ ${OBJS} $(LDFLAGS) $(LDLIBS)
+
+# cancel direct version
+%: %.c
+
+
+%.o: ${srcdir}%.c
+	${CC} -c ${CFLAGS} $<
+
+%.o: ${srcdir}%.cpp
+	${CXX} -c ${CXXFLAGS} $<
+
+include ${PANDORA_SRCDIR}/programs/Makefile.manpages
+
+#%.i: %.c
+#	$(CC) $(CFLAGS) -E -o $@ $<
+
+${SCRIPT}: ${srcdir}%.in ${PANDORA_SRCDIR}/Makefile.inc ${PANDORA_SRCDIR}/Makefile.ver
+	@echo  $< '->' $@
+	@cat $< | sed -e "s/xxx/$(PANDORA_VERSION)/" \
+                        -e "s:@MODPROBE@:$(MODPROBE):" \
+			| cat >$@
+	@if [ -x $< ]; then chmod +x $@; fi
+	@if [ "${PROGRAM}.in" = $< ]; then chmod +x $@; fi
+
+distclean: clean
+
+vars:
+	@echo PROGRAM=${PROGRAM}
+	@echo PWD=`pwd`
+	@echo srcdir=${srcdir}
+
+cleanall::
+ifneq ($(strip $(PROGRAM)),)
+	@if [ -r ${srcdir}$(PROGRAM).in ]; then rm -f $(PROGRAM); fi
+	@if [ -r ${srcdir}$(PROGRAM).c ];  then rm -f $(PROGRAM); fi
+	@if [ -n "$(OBJS)" ];     then rm -f $(PROGRAM); fi
+endif
+	@rm -f *.o
+
+checkprograms::
+
+PANDORA_SRCDIRREL?=../..
+
+# Gather dependencies caused by explicit #includes within .c files
+depend: ${DISTSRC}
+	@(ls $(DISTSRC) | egrep '\.c$$|\.cpp$$' | xargs gcc -MM ${PORTINCLUDE} ${INCLUDES} ${ALLFLAGS} ) | sed -e 's,${PANDORA_SRCDIR},../..,g' >Makefile.depend.${OSDEP}
+
+Makefile.depend:
+Makefile.depend.${OSDEP}:
+Makefile.inc:
+
+-include ${srcdir}Makefile.depend.${OSDEP}

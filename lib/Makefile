@@ -1,6 +1,6 @@
 # unstrung master makefile
 #
-# Copyright (C) 2009-2013 Michael Richardson <mcr@sandelman.ca>
+# Copyright (C) 2009 Michael Richardson <mcr@sandelman.ca>
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -21,7 +21,7 @@ include ${PANDORA_SRCDIR}/Makefile.inc
 
 srcdir?=$(shell pwd)
 
-SUBDIRS=peck senddio sunshine senddao
+SUBDIRS=libndmgmt libosw libfakeiface libnetlink
 
 unitcheck:
 	@true
