@@ -14,14 +14,14 @@
 #
 
 
-PANDORA_SRCDIR?=$(shell cd ..; pwd)
-export PANDORA_SRCDIR
+RFC6204D_SRCDIR?=$(shell cd ..; pwd)
+export RFC6204D_SRCDIR
 
-include ${PANDORA_SRCDIR}/Makefile.inc
+include ${RFC6204D_SRCDIR}/Makefile.inc
 
 srcdir?=$(shell pwd)
 
-SUBDIRS=libndmgmt libosw libfakeiface libnetlink
+SUBDIRS=libfakeiface libnetlink
 
 unitcheck:
 	@true

@@ -1,6 +1,6 @@
-# unstrung master makefile
+# rfc6204d master makefile
 #
-# Copyright (C) 2009-2013 Michael Richardson <mcr@sandelman.ca>
+# Copyright (C) 2014 Michael Richardson <mcr@finepoint.com>
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -14,14 +14,14 @@
 #
 
 
-PANDORA_SRCDIR?=$(shell cd ..; pwd)
-export PANDORA_SRCDIR
+RFC6204D_SRCDIR?=$(shell cd ..; pwd)
+export RFC6204D_SRCDIR
 
-include ${PANDORA_SRCDIR}/Makefile.inc
+include ${RFC6204D_SRCDIR}/Makefile.inc
 
 srcdir?=$(shell pwd)
 
-SUBDIRS=peck senddio sunshine senddao
+SUBDIRS=
 
 unitcheck:
 	@true

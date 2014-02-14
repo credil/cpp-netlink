@@ -14,39 +14,12 @@
 #
 
 
-PANDORA_SRCDIR?=$(shell cd ../..; pwd)
-export PANDORA_SRCDIR
+RFC6204D_SRCDIR?=$(shell cd ../..; pwd)
+export RFC6204D_SRCDIR
 
-include ${PANDORA_SRCDIR}/Makefile.inc
+include ${RFC6204D_SRCDIR}/Makefile.inc
 
 srcdir?=$(shell pwd)
 
-SUBDIRS=01-osw
-SUBDIRS+=02-recvdio
-SUBDIRS+=03-dioopt
-SUBDIRS+=04-dag 05-dag 06-dag
-SUBDIRS+=07-dagset
-SUBDIRS+=08-event
-# needs print_linkinfo
-#SUBDIRS+=09-netlink
-# fix this, ticket #2939
-#SUBDIRS+=10-netlink
-SUBDIRS+=12-senddio
-SUBDIRS+=13-selfprefix
-SUBDIRS+=14-senddao
-SUBDIRS+=15-builddao
-SUBDIRS+=16-vf
-SUBDIRS+=17-recvdao
-SUBDIRS+=18-checksum
-SUBDIRS+=19-pickdag
-SUBDIRS+=20-prefix
-SUBDIRS+=21-node
-SUBDIRS+=22-queues
-SUBDIRS+=23-selfdio
-SUBDIRS+=24-daoreply
-SUBDIRS+=25-childdio
-SUBDIRS+=26-senddaoack
-
-
-
-
+SUBDIRS=01-dumpif
+#SUBDIRS+=02-recvdio

@@ -13,12 +13,12 @@
 #
 
 
-PANDORA_SRCDIR?=$(shell cd ../..; pwd)
+RFC6204D_SRCDIR?=$(shell cd ../..; pwd)
 
-include ${PANDORA_SRCDIR}/Makefile.ver
-include ${PANDORA_SRCDIR}/Makefile.inc
+include ${RFC6204D_SRCDIR}/Makefile.ver
+include ${RFC6204D_SRCDIR}/Makefile.inc
 
-srcdir?=${PANDORA_SRCDIR}/lib/libfakeiface/
+srcdir?=${RFC6204D_SRCDIR}/lib/libfakeiface/
 
 # local install of pcap.h, or make sure you have libpcap-dev installed.
 CXXFLAGS+=-I/sandel/include -g

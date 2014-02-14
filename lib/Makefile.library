@@ -1,5 +1,3 @@
-MANSRCDIR=${PANDORA_SRCDIR}/lib/libopenswan
-
 LEX=flex
 RANLIB?=ranlib
 
@@ -14,17 +12,14 @@ OSDEP?=$(shell uname -s | tr 'A-Z' 'a-z')
 WCASTQUAL?=-Wcast-qual
 
 # Original flags
-INCLUDES+=-I. -I${PANDORA_SRCDIR}
-INCLUDES+=-I${PANDORA_SRCDIR}/include
+INCLUDES+=-I. -I${RFC6204D_SRCDIR}
+INCLUDES+=-I${RFC6204D_SRCDIR}/include
 CFLAGS+=${PORTINCLUDE} ${INCLUDES} ${CROSSFLAGS}
 CXXFLAGS+=${PORTINCLUDE} ${INCLUDES} ${CROSSFLAGS}
 
 
 CFLAGS+=-DDEBUG
 CFLAGS+= $(USERCOMPILE)
-ifneq ($(BUILDENV),darwin)
-CFLAGS+= -Wall
-endif
 #CFLAGS+= -Wconversion
 #CFLAGS+= -Wmissing-prototypes
 CFLAGS+= -Wpointer-arith
@@ -37,10 +32,6 @@ CFLAGS+= -Wstrict-prototypes
 CFLAGS+= -Wbad-function-cast
 CFLAGS+= ${CROSSFLAGS}
 
-ifeq ($(USE_NAT_TRAVERSAL),true)
-CFLAGS+= -DNAT_TRAVERSAL
-endif
-
 ARFLAGS=crvs
 MANS=
 
@@ -52,7 +43,7 @@ default:: programs
 SHOULDWERESTART=${USE_OBJDIR}$(wildcard ${ONEFILE})
 ifeq ($(SHOULDWERESTART),true${ONEFILE})
 all programs clean install::
-	cd ${PANDORA_SRCDIR} && cd ${OBJDIRTOP}/lib/lib${LIBRARY} && ${MAKE} $@
+	cd ${RFC6204D_SRCDIR} && cd ${OBJDIRTOP}/lib/lib${LIBRARY} && ${MAKE} $@
 else
 all::	$(LIB)
 programs:: $(LIB)
@@ -67,7 +58,7 @@ doinstall:
 	do \
 		$(INSTALL) $(INSTMANFLAGS) $(MANSRCDIR)/$$f $(MANDIR)/ipsec_$$f || exit 1 ; \
 	done
-	@$(PANDORA_SRCDIR)/packaging/utils/manlink $(foreach man, $(MANS), ${MANSRCDIR}/$(man)) | \
+	@$(RFC6204D_SRCDIR)/packaging/utils/manlink $(foreach man, $(MANS), ${MANSRCDIR}/$(man)) | \
 	while read from to; \
 	do \
 		ln -s -f ipsec_$$from $(MANDIR)/$$to; \
@@ -79,7 +70,7 @@ install_file_list:
 	do \
 		echo $(MANDIR)/ipsec_$$f;\
 	done;
-	@$(PANDORA_SRCDIR)/packaging/utils/manlink $(foreach man, $(MANS), ${MANSRCDIR}/$(man)) | \
+	@$(RFC6204D_SRCDIR)/packaging/utils/manlink $(foreach man, $(MANS), ${MANSRCDIR}/$(man)) | \
 	while read from to; \
 	do \
 		echo $(MANDIR)/$$to; \
@@ -96,7 +87,7 @@ cleanall::
 
 # Gather dependencies caused by explicit #includes within .c files
 depend: ${DISTSRC}
-	@(ls $(DISTSRC) | egrep '\.c$$|\.cpp$$' | xargs gcc -MM ${PORTINCLUDE} ${INCLUDES} ${ALLFLAGS} ) | sed -e 's,${PANDORA_SRCDIR},../..,g' >Makefile.depend.${OSDEP}
+	@(ls $(DISTSRC) | egrep '\.c$$|\.cpp$$' | xargs gcc -MM ${PORTINCLUDE} ${INCLUDES} ${ALLFLAGS} ) | sed -e 's,${RFC6204D_SRCDIR},../..,g' >Makefile.depend.${OSDEP}
 
 Makefile.depend:
 Makefile.depend.${OSDEP}:

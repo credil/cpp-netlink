@@ -1,6 +1,6 @@
-# rfc6204d master makefile
+# unstrung master makefile
 #
-# Copyright (C) 2014 Michael Richardson <mcr@finepoint.com>
+# Copyright (C) 2009 Michael Richardson <mcr@sandelman.ca>
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -14,20 +14,12 @@
 #
 
 
-RFC6204D_SRCDIR?=$(shell pwd)
-export RFC6204D_SRCDIR
+UNSTRUNG_SRCDIR?=$(shell cd ../..; pwd)
+export UNSTRUNG_SRCDIR
 
-TERMCAP=
-export TERMCAP
-
-default:: programs
+include ${UNSTRUNG_SRCDIR}/Makefile.inc
 
 srcdir?=$(shell pwd)
 
--include ${RFC6204D_SRCDIR}/Makefile.vendor
-
-SUBDIRS=lib programs testing
-
-include ${RFC6204D_SRCDIR}/Makefile.top
-include ${RFC6204D_SRCDIR}/Makefile.inc
+SUBDIRS=
 

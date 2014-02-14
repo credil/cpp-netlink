@@ -3,14 +3,14 @@
 default:: programs
 
 # stuff.
-INC=${PANDORA_SRCDIR}/include
-CROSSFLAGS=-m32
+INC=${RFC6204D_SRCDIR}/include
+#CROSSFLAGS=-m32
 CFLAGS+=-I${INC}
 CXXFLAGS+=-I${INC}
 OSDEP=$(shell uname -s).$(shell arch)
 
 USE_OBJDIR=false
-PANDORA_OBJDIR=${PANDORA_SRCDIR}/.
+PANDORA_OBJDIR=${RFC6204D_SRCDIR}/.
 XMLTO=xmlto
 
 MANTREE=${DESTDIR}/usr/share/man
@@ -19,8 +19,6 @@ INSTMANFLAGS=-D
 INSTBINFLAGS=-D
 
 LIBNDMGMT=${PANDORA_OBJDIR}/lib/libndmgmt/libndmgmt.a
-LIBOSW=${PANDORA_OBJDIR}/lib/libosw/libosw.a
-LIBNETLINK=${PANDORA_OBJDIR}/lib/libnetlink/libnetlinkstrung.a
 LIBFAKEIFACE=${PANDORA_OBJDIR}/lib/libfakeiface/libfakeiface.a
 #LIBPCAP=/usr/local/ia32/lib/libpcap.a
 LIBPCAP=-L/usr/local/ia32/lib -lpcap
@@ -32,12 +30,12 @@ NEEDCHECK?=check
 TAGS clean ${NEEDCHECK} programs checkprograms::
 	@for d in $(SUBDIRS) ; \
 	do \
-		$(MAKE) -C $$d PANDORA_SRCDIR=${PANDORA_SRCDIR} $@ || exit 1; \
+		$(MAKE) -C $$d RFC6204D_SRCDIR=${RFC6204D_SRCDIR} $@ || exit 1; \
 	done;
 
 env:
 	@env | sed -e "s/'/'\\\\''/g" -e "s/\([^=]*\)=\(.*\)/\1='\2'/"
 
 TAGS::
-	@if [ -n "${CXXSRCS}${SRCS}" ]; then etags --append -o ${PANDORA_SRCDIR}/TAGS ${CXXSRCS} ${SRCS}; fi
+	@if [ -n "${CXXSRCS}${SRCS}" ]; then etags --append -o ${RFC6204D_SRCDIR}/TAGS ${CXXSRCS} ${SRCS}; fi
 
