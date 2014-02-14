@@ -27,7 +27,7 @@ extern "C" {
 
 class pcap_network_interface : public network_interface {
 public:
-  pcap_network_interface(const char *name, rpl_debug *deb);
+  pcap_network_interface(const char *name, netprog_debug *deb);
 	pcap_network_interface(pcap_dumper_t *pd);
         ~pcap_network_interface();
         int nisystem(const char *cmd);
@@ -42,7 +42,7 @@ public:
 	void increment_packet(void)   { packet_count++; };
 	unsigned int packet_num(void) { return packet_count; };
 
-        static void scan_devices(rpl_debug *deb, bool setup);
+        static void scan_devices(netprog_debug *deb, bool setup);
         void set_if_index(int index) {
                 if_index = index;
                 add_to_list();
@@ -56,7 +56,7 @@ public:
                 const char *ifname,
                 const char *infile,
                 const char *outfile,
-		rpl_debug *debug);
+		netprog_debug *debug);
 
         void set_pcap_out(const char *outfile, int pcap_link);
 	void close_pcap_files(void);
@@ -72,13 +72,16 @@ public:
         };
 
 	void advance_fake_time(void) {
-	  rpl_event::advance_fake_time();
+          abort();
+	  //rpl_event::advance_fake_time();
 	};
 
 
 protected:
         void filter_and_receive_icmp6(const time_t now,
                                       const u_char *bytes, int len);
+        void receive_icmp6(time_t now, const struct ip6_hdr *ip6, unsigned int len);
+        void receive_udp6(time_t now, const struct ip6_hdr *ip6, unsigned int len);
 
 private:
         int            pcap_link;

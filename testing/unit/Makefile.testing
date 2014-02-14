@@ -3,6 +3,6 @@ INC=${RFC6204D_SRCDIR}/include
 # local install of pcap.h, or make sure you have libpcap-dev installed.
 CXXFLAGS+=-I/sandel/include -g ${CROSSFLAGS}
 CFLAGS+=${CROSSFLAGS}
-LIBS=${LIBFAKEIFACE} ${LIBNDMGMT} ${LIBOSW} ${LIBNETLINK} ${LIBOSW}
+LIBS=${LIBFAKEIFACE} ${LIBNDMGMT} ${LIBNETLINK}
 LIBS+=
 LDFLAGS+=${LIBS} ${LIBPCAP} ${EXTRALIBS}

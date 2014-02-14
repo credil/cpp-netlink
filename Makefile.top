@@ -23,19 +23,10 @@ clean::
 distclean:	clean
 	if [ -f umlsetup.sh ]; then source umlsetup.sh; if [ -d "$$POOLSPACE" ]; then rm -rf $$POOLSPACE; fi; fi
 
-uml:	checkprograms
-	-chmod +x testing/utils/make-uml.sh testing/utils/verify-uml.sh
-	./testing/utils/verify-uml.sh
-	./testing/utils/make-uml.sh `pwd`
-
-umluserland:
-	(touch ${UNSTRUNG_SRCDIR}/Makefile.inc && source ${UNSTRUNG_SRCDIR}/umlsetup.sh && cd $$POOLSPACE && $(MAKE) $$UNSTRUNG_HOSTS $$REGULARHOSTS )
-
-
 checkprograms::
 	@for d in $(SUBDIRS); do (cd $$d && $(MAKE) DESTDIR=${DESTDIR} checkprograms || exit 1); done
 
-check::	uml Makefile.ver
+check::	Makefile.ver
 ifneq ($(strip(${REGRESSRESULTS})),)
 	mkdir -p ${REGRESSRESULTS}
 endif

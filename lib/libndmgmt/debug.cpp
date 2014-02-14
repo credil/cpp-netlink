@@ -23,7 +23,7 @@ extern "C" {
 
 #include "debug.h"
 
-void rpl_debug::logv_more(const char *fmt, va_list vargs)
+void netprog_debug::logv_more(const char *fmt, va_list vargs)
 {
     if(file == NULL) return;
     vfprintf(file, fmt, vargs);
@@ -35,7 +35,7 @@ void rpl_debug::logv_more(const char *fmt, va_list vargs)
 #endif
 }
 
-void rpl_debug::logv(const char *fmt, va_list vargs)
+void netprog_debug::logv(const char *fmt, va_list vargs)
 {
     if(file == NULL) return;
     if(want_time_log) {
@@ -52,7 +52,7 @@ void rpl_debug::logv(const char *fmt, va_list vargs)
     logv_more(fmt, vargs);
 }
 
-void rpl_debug::log(const char *fmt, ...)
+void netprog_debug::log(const char *fmt, ...)
 {
     va_list vargs;
     va_start(vargs,fmt);
@@ -62,7 +62,7 @@ void rpl_debug::log(const char *fmt, ...)
     }
 }
 
-void rpl_debug::info(const char *fmt, ...)
+void netprog_debug::info(const char *fmt, ...)
 {
     va_list vargs;
     va_start(vargs,fmt);
@@ -70,7 +70,7 @@ void rpl_debug::info(const char *fmt, ...)
     logv(fmt, vargs);
 }
 
-void rpl_debug::info_more(const char *fmt, ...)
+void netprog_debug::info_more(const char *fmt, ...)
 {
     va_list vargs;
     va_start(vargs,fmt);
@@ -78,7 +78,7 @@ void rpl_debug::info_more(const char *fmt, ...)
     logv_more(fmt, vargs);
 }
 
-void rpl_debug::warn(const char *fmt, ...)
+void netprog_debug::warn(const char *fmt, ...)
 {
     va_list vargs;
     va_start(vargs,fmt);
@@ -86,7 +86,7 @@ void rpl_debug::warn(const char *fmt, ...)
     logv(fmt, vargs);
 }
 
-void rpl_debug::error(const char *fmt, ...)
+void netprog_debug::error(const char *fmt, ...)
 {
     va_list vargs;
     va_start(vargs,fmt);
@@ -94,7 +94,7 @@ void rpl_debug::error(const char *fmt, ...)
     logv(fmt, vargs);
 }
 
-void rpl_debug::verbose_more(const char *fmt, ...)
+void netprog_debug::verbose_more(const char *fmt, ...)
 {
     va_list vargs;
     va_start(vargs,fmt);
@@ -104,7 +104,7 @@ void rpl_debug::verbose_more(const char *fmt, ...)
     }
 }
 
-void rpl_debug::verbose(const char *fmt, ...)
+void netprog_debug::verbose(const char *fmt, ...)
 {
     va_list vargs;
     va_start(vargs,fmt);

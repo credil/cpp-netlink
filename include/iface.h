@@ -12,16 +12,11 @@ extern "C" {
 #include <sys/time.h>
 #include <netinet/icmp6.h>
 #include <linux/if.h>             /* for IFNAMSIZ */
-#include "oswlibs.h"
-#include "rpl.h"
 }
 
 #define HWADDR_MAX 16
-#include "unstrung.h"
-#include "prefix.h"
-#include "event.h"
+#include "rfc6204d.h"
 #include "debug.h"
-#include "dag.h"
 
 extern const uint8_t all_hosts_addr[];
 extern const uint8_t all_rpl_addr[];
@@ -32,8 +27,8 @@ enum network_interface_exceptions {
 
 /* used in network_interface::gather_linkinfo() */
 struct network_interface_init {
-    rpl_debug *debug;
-    bool       setup;
+    netprog_debug *debug;
+    bool           setup;
 };
 
 class network_interface {
@@ -42,9 +37,9 @@ public:
     bool mark;
 
     int announce_network();
-    network_interface();
+    network_interface(void);
     network_interface(int fd);
-    network_interface(const char *if_name, rpl_debug *deb);
+    network_interface(const char *if_name, netprog_debug *deb);
 
     // setup the object, open sockets, etc.
     bool setup(void);
@@ -55,32 +50,14 @@ public:
 
     bool is_active() { return alive; };
 
-    void set_debug(class rpl_debug *deb) {
+    void set_debug(class netprog_debug *deb) {
         debug = deb;
     }
 
-    virtual int nisystem(const char *cmd);
-    virtual int ni_route_show(void);
     virtual void receive_packet(struct in6_addr ip6_src,
                                 struct in6_addr ip6_dst,
                                 time_t          now,
                                 const u_char *bytes, const int len);
-
-    void receive_dao(struct in6_addr from,
-                     time_t          now,
-                     const u_char *dao_bytes, const int dao_len);
-    void receive_dio(struct in6_addr from,
-                     time_t          now,
-                     const u_char *dio_bytes, const int dio_len);
-    void receive_daoack(struct in6_addr from,
-                        const  time_t now,
-                        const u_char *dat, const int daoack_len);
-
-    void send_dio(dag_network *dag);
-    void send_dao(rpl_node &parent, dag_network &dag);
-    void send_daoack(rpl_node &child, dag_network &dag);
-    static void send_dio_all(dag_network *dag);
-    static void send_dao_all(dag_network *dag);
 
     virtual void send_raw_icmp(struct in6_addr *dest,
                                const unsigned char *icmp_body,
@@ -91,31 +68,12 @@ public:
     const char *get_if_name(void) { return if_name; };
     int         get_if_index(void);
 
-    bool if_ifaddr(struct in6_addr ia) {
-        return (memcmp(&ia, &if_addr, sizeof(ia))==0);
-    };
-
-    void update_multicast_time(void) {
-        struct timeval tv;
-
-        gettimeofday(&tv, NULL);
-
-        last_multicast_sec = tv.tv_sec;
-        last_multicast_usec = tv.tv_usec;
-    };
-    bool addprefix(dag_network *dn, prefix_node &prefix);
-    bool add_route_to_node(const ip_subnet &prefix, rpl_node *peer, const ip_address &srcip);
-    bool add_null_route_to_prefix(const ip_subnet &prefix);
-
     /* eui string functions */
     char *eui48_str(char *str, int strlen);
     char *eui64_str(char *str, int strlen);
 
-    /* find a dag network associated with the interface */
-    dag_network       *find_or_make_dag_by_dagid(const char *name);
-
-    static void scan_devices(rpl_debug *deb, bool setup);
-    static void main_loop(FILE *verbose, rpl_debug *debug);
+    static void scan_devices(netprog_debug *deb, bool setup);
+    static void main_loop(netprog_debug *debug);
     static network_interface *find_by_ifindex(int ifindex);
     static network_interface *find_by_name(const char *name);
     static int foreach_if(int (*func)(network_interface*, void*), void*arg);
@@ -130,7 +88,7 @@ public:
     };
 
     /* event lists */
-    static class rpl_event_queue   things_to_do;
+    //static class rpl_event_queue   things_to_do;
 
     static bool                    signal_usr2;
     static bool                    terminating_soon;
@@ -140,13 +98,10 @@ public:
     void set_fake_time(struct timeval n) {
 	faked_time = true;
 	fake_time  = n;
-	rpl_event::set_fake_time(fake_time);
+	//rpl_event::set_fake_time(fake_time);
     };
 
-    rpl_node *host_node(void) { return node; };
     struct in6_addr         if_addr;
-    bool                    watching;   /* true if we should collect all DAGs*/
-
     bool                    loopbackP() { return loopback; };
 
 protected:
@@ -159,9 +114,7 @@ protected:
                                 struct nlmsghdr *n, void *arg);
 
     /* debugging */
-    rpl_debug              *debug;
-    rpl_node               *node;
-    dag_network            *dagnet;
+    netprog_debug              *debug;
     int                     if_index;      /* cached value for get_if_index()*/
     bool                    alive;
     bool                    loopback;
@@ -181,22 +134,22 @@ protected:
 private:
     int packet_too_short(const char *thing, const int avail, const int needed);
     int                     nd_socket;
+    int                     dhc_socket;
     int                     error_cnt;
 
     char                    if_name[IFNAMSIZ];
-    int			if_prefix_len;
+    int			    if_prefix_len;
 
-    uint8_t			if_hwaddr[HWADDR_MAX];
-    int			if_hwaddr_len;
-
-    int			if_maxmtu;
+    uint8_t		    if_hwaddr[HWADDR_MAX];
+    int			    if_hwaddr_len;
+    int			    if_maxmtu;
 
     /* list states */
     bool                    on_list;
 
     /* timers */
-    time_t			last_multicast_sec;
-    suseconds_t		last_multicast_usec;
+    time_t		    last_multicast_sec;
+    suseconds_t		    last_multicast_usec;
 
     unsigned char          *control_msg_hdr;
     unsigned int            control_msg_hdrlen;
@@ -206,7 +159,7 @@ private:
 
     /* private helper functions */
     void setup_allrouters_membership(void);
-    void setup_allrpl_membership(void);
+    void setup_alldhc_membership(void);
     void check_allrouters_membership(void);
 
     unsigned char           optbuff[256];
@@ -218,13 +171,10 @@ private:
     unsigned char           eui48[6];
     unsigned char           eui64[8];
     struct in6_addr         ipv6_link_addr;
-    prefix_map              ipv6_prefix_list;  /* for keeping track of what we put into
-                                                  the kernel with netlink.
-                                                  Always /128 networks */
 
+    class network_interface        *next;
 
     /* this is global to all the interfaces */
-    class network_interface        *next;
     static class network_interface *all_if;
     static int                      if_count(void);
 
@@ -235,12 +185,9 @@ private:
 
 extern class network_interface *loopback_interface;
 
-#define ND_OPT_RPL_PRIVATE_DAO 200
-#define ND_OPT_RPL_PRIVATE_DIO 201
-
 class iface_factory {
 public:
-    virtual network_interface *newnetwork_interface(const char *name, rpl_debug *deb);
+    virtual network_interface *newnetwork_interface(const char *name, netprog_debug *deb);
 };
 extern class iface_factory *iface_maker;
 

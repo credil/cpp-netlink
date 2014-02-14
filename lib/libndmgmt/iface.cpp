@@ -33,7 +33,6 @@ extern "C" {
 #include <netinet/icmp6.h>
 #include <linux/if.h>           /* for IFNAMSIZ */
 #include <time.h>
-#include "rpl.h"
 #include "hexdump.c"
 
 #ifndef IPV6_ADDR_LINKLOCAL
@@ -42,21 +41,20 @@ extern "C" {
 }
 
 #include "iface.h"
-#include "dag.h"
+#include "rfc6204d.h"
 
 bool                  network_interface::signal_usr2;
 bool                  network_interface::faked_time;
 bool                  network_interface::terminating_soon = false;
 struct timeval        network_interface::fake_time;
-class rpl_event_queue network_interface::things_to_do;
 
 class network_interface *loopback_interface = NULL;
 
 const uint8_t all_hosts_addr[] = {0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,0x01};
-const uint8_t all_rpl_addr[]   = {0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,0x1a};
+const uint8_t all_dhc_addr[]   = {0xff,0x02,0,0,0,0,0,0,0,0,0,0x1,0,0,0,0x2};
 
 
-network_interface::network_interface()
+network_interface::network_interface(void)
 {
     nd_socket = -1;
     alive = false;
@@ -72,7 +70,7 @@ network_interface::network_interface(int fd)
     this->set_if_name("<unset>");
 }
 
-network_interface::network_interface(const char *if_name, rpl_debug *deb)
+network_interface::network_interface(const char *if_name, netprog_debug *deb)
 {
     alive = false;
     nd_socket = -1;
@@ -135,85 +133,100 @@ char *network_interface::eui48_str(char *str, int strlen)
 
 bool network_interface::setup()
 {
-    if(alive && nd_socket != -1) return true;
+    if(alive && nd_socket != -1 && dhc_socket !=-1) return true;
 
     generate_eui64();
 
     debug->verbose("Starting setup for %s\n", this->if_name);
 
-    nd_socket = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
-    struct icmp6_filter filter;
-    int err, val;
+    if(nd_socket == -1) {
+        nd_socket = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+        struct icmp6_filter filter;
+        int err, val;
 
-    if (nd_socket < 0)
-    {
-        fprintf(this->verbose_file, "can't create socket(AF_INET6): %s", strerror(errno));
-	return false;
-    }
+        if (nd_socket < 0)
+            {
+                debug->error( "can't create socket(AF_INET6): %s", strerror(errno));
+                return false;
+            }
 
-    val = 1;
-    err = setsockopt(nd_socket, IPPROTO_IPV6, IPV6_RECVPKTINFO, &val, sizeof(val));
-    if (err < 0)
-    {
-        fprintf(this->verbose_file, "setsockopt(IPV6_RECVPKTINFO): %s", strerror(errno));
-        return false;
-    }
+        val = 1;
+        err = setsockopt(nd_socket, IPPROTO_IPV6, IPV6_RECVPKTINFO, &val, sizeof(val));
+        if (err < 0)
+            {
+                debug->error( "setsockopt(IPV6_RECVPKTINFO): %s", strerror(errno));
+                return false;
+            }
 
-    val = 2;
-    err = setsockopt(nd_socket, IPPROTO_RAW, IPV6_CHECKSUM, &val, sizeof(val));
-    if (err < 0)
-    {
-        fprintf(this->verbose_file, "setsockopt(IPV6_CHECKSUM): %s", strerror(errno));
-        return false;
-    }
+        val = 2;
+        err = setsockopt(nd_socket, IPPROTO_RAW, IPV6_CHECKSUM, &val, sizeof(val));
+        if (err < 0)
+            {
+                debug->error( "setsockopt(IPV6_CHECKSUM): %s", strerror(errno));
+                return false;
+            }
 
-    val = 255;
-    err = setsockopt(nd_socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &val, sizeof(val));
-    if (err < 0)
-    {
-        fprintf(this->verbose_file, "setsockopt(IPV6_UNICAST_HOPS): %s", strerror(errno));
-        return false;
-    }
+        val = 255;
+        err = setsockopt(nd_socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &val, sizeof(val));
+        if (err < 0)
+            {
+                debug->error( "setsockopt(IPV6_UNICAST_HOPS): %s", strerror(errno));
+                return false;
+            }
 
-    val = 255;
-    err = setsockopt(nd_socket, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &val, sizeof(val));
-    if (err < 0)
-    {
-        fprintf(this->verbose_file, "setsockopt(IPV6_MULTICAST_HOPS): %s", strerror(errno));
-        return false;
-    }
+        val = 255;
+        err = setsockopt(nd_socket, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &val, sizeof(val));
+        if (err < 0)
+            {
+                debug->error( "setsockopt(IPV6_MULTICAST_HOPS): %s", strerror(errno));
+                return false;
+            }
 
 #ifdef IPV6_RECVHOPLIMIT
-    val = 1;
-    err = setsockopt(nd_socket, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &val, sizeof(val));
-    if (err < 0)
-    {
-        fprintf(this->verbose_file, "setsockopt(IPV6_RECVHOPLIMIT): %s", strerror(errno));
-        return false;
-    }
+        val = 1;
+        err = setsockopt(nd_socket, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &val, sizeof(val));
+        if (err < 0)
+            {
+                debug->error( "setsockopt(IPV6_RECVHOPLIMIT): %s", strerror(errno));
+                return false;
+            }
 #endif
 
 #if 1
-    /*
-     * setup ICMP filter
-     */
+        /*
+         * setup ICMP filter
+         */
 
-    ICMP6_FILTER_SETBLOCKALL(&filter);
-    ICMP6_FILTER_SETPASS(ND_RPL_MESSAGE,    &filter);
-    ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
-    ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT,  &filter);
+        ICMP6_FILTER_SETBLOCKALL(&filter);
+        ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
+        ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT,  &filter);
 
-    err = setsockopt(nd_socket, IPPROTO_ICMPV6, ICMP6_FILTER, &filter,
-                     sizeof(filter));
-    if (err < 0)
-    {
-        fprintf(this->verbose_file, "setsockopt(ICMPV6_FILTER): %s", strerror(errno));
-        return false;
-    }
+        err = setsockopt(nd_socket, IPPROTO_ICMPV6, ICMP6_FILTER, &filter,
+                         sizeof(filter));
+        if (err < 0)
+            {
+                debug->error( "setsockopt(ICMPV6_FILTER): %s", strerror(errno));
+                return false;
+            }
 #endif
+    }
 
-    //setup_allrouters_membership();
-    setup_allrpl_membership();
+    if(dhc_socket == -1) {
+        dhc_socket = socket(AF_INET6, SOCK_DGRAM, 0);
+
+        struct sockaddr_in6 sin6;
+        memset(&sin6, 0, sizeof(sin6));
+        sin6.sin6_family = AF_INET6;
+        sin6.sin6_port   = htons(IPV6_DHC_SERVER_PORT);
+        sin6.sin6_scope_id = this->if_index;
+
+        if(bind(dhc_socket, (struct sockaddr *)&sin6, sizeof(sin6))==-1) {
+            debug->error( "failed to bind UDP port on if=%u: %s", strerror(errno));
+            return false;
+        }
+    }
+
+    setup_allrouters_membership();
     struct ipv6_mreq mreq;
 
     /* make sure that there is an rpl_node entry for ourselves */
@@ -251,15 +264,15 @@ void network_interface::setup_allrouters_membership(void)
 	return;
 }
 
-void network_interface::setup_allrpl_membership(void)
+void network_interface::setup_alldhc_membership(void)
 {
 	struct ipv6_mreq mreq;
 
 	memset(&mreq, 0, sizeof(mreq));
 	mreq.ipv6mr_interface = this->get_if_index();
 
-	/* all-rpl-nodes: ff02::1a */
-        memcpy(&mreq.ipv6mr_multiaddr.s6_addr[0], all_rpl_addr, sizeof(mreq.ipv6mr_multiaddr));
+	/* All_DHCP_Relay_Agents_and_Servers: ff02::1:2 */
+        memcpy(&mreq.ipv6mr_multiaddr.s6_addr[0], all_dhc_addr, sizeof(mreq.ipv6mr_multiaddr));
 
         if (setsockopt(nd_socket, SOL_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
         {
@@ -312,17 +325,11 @@ void network_interface::check_allrouters_membership(void)
 
 	if (!allrpl_ok) {
             printf("resetting ipv6-rpl membership on %s\n", this->if_name);
-            setup_allrpl_membership();
+            setup_alldhc_membership();
 	}
 
 	return;
 }
-
-class dag_network *network_interface::find_or_make_dag_by_dagid(const char *name)
-{
-        return dag_network::find_or_make_by_string(name, debug, false);
-}
-
 
 /* XXX replace with STL list */
 class network_interface *network_interface::all_if = NULL;
@@ -459,29 +466,6 @@ void network_interface::receive_packet(struct in6_addr ip6_src,
     /* XXX should maybe check the checksum? */
 
     switch(icmp6->icmp6_type) {
-    case ND_RPL_MESSAGE:
-        switch(icmp6->icmp6_code) {
-        case ND_RPL_DAG_IO:
-            this->receive_dio(ip6_src, now,
-                              icmp6->icmp6_data8, bytes_end - icmp6->icmp6_data8);
-            break;
-
-        case ND_RPL_DAO:
-            this->receive_dao(ip6_src, now,
-                              icmp6->icmp6_data8, bytes_end - icmp6->icmp6_data8);
-            break;
-
-        case ND_RPL_DAO_ACK:
-            this->receive_daoack(ip6_src, now,
-                                 icmp6->icmp6_data8, bytes_end - icmp6->icmp6_data8);
-            break;
-
-        default:
-            debug->warn("Got unknown RPL code: %u\n", icmp6->icmp6_code);
-            break;
-        }
-        return;
-
     case ND_ROUTER_SOLICIT:
     {
 	struct nd_router_solicit *nrs = (struct nd_router_solicit *)bytes;
@@ -770,8 +754,8 @@ void network_interface::send_raw_icmp(struct in6_addr *dest,
 
     if (dest == NULL)
     {
-        dest = (struct in6_addr *)all_rpl_addr;  /* fixed to official ff02::1a */
-        update_multicast_time();
+        dest = (struct in6_addr *)all_dhc_addr;  /* fixed to official ff02::1a */
+        //update_multicast_time();
     }
 
     memset((void *)&addr, 0, sizeof(addr));
@@ -838,33 +822,6 @@ void network_interface::terminating(void) {
     terminating_soon = true;
 }
 
-/* this runs the next event, even if it is not time yet */
-bool network_interface::force_next_event(void) {
-    rpl_event *re = things_to_do.next_event();
-
-    struct timeval now;
-    gettimeofday(&now, NULL);
-
-    if(re) {
-	if(re->doit() && !terminating_soon) {
-            re->requeue(now);
-	} else {
-	    delete re;
-	}
-        return true;
-    } else {
-        return false;
-    }
-}
-
-/* empty all events */
-void network_interface::clear_events(void) {
-    rpl_event *re;
-    while((re = things_to_do.next_event()) != NULL) {
-	delete re;
-    }
-}
-
 void network_interface::catch_signal_usr2(int signum,
 						 siginfo_t *si,
 						 void *ucontext)
@@ -875,7 +832,7 @@ void network_interface::catch_signal_usr2(int signum,
 
 
 
-void network_interface::main_loop(FILE *verbose, rpl_debug *debug)
+void network_interface::main_loop(netprog_debug *debug)
 {
     bool done = false;
 
@@ -896,6 +853,7 @@ void network_interface::main_loop(FILE *verbose, rpl_debug *debug)
         struct timeval now;
         gettimeofday(&now, NULL);
 
+#if 0
 	debug->verbose2("checking things to do list, has %d items\n",
 			things_to_do.size());
 
@@ -918,6 +876,7 @@ void network_interface::main_loop(FILE *verbose, rpl_debug *debug)
                 break;
             }
         }
+#endif
 
         /*
          * do not really need to build this every time, but, for
@@ -970,8 +929,8 @@ void network_interface::main_loop(FILE *verbose, rpl_debug *debug)
             perror("sunshine poll");
         }
 	if(signal_usr2) {
-	    things_to_do.printevents(debug->file, "usr2 ");
-	    dag_network::print_all_dagstats(debug->file, "usr2 ");
+	    //things_to_do.printevents(debug->file, "usr2 ");
+	    //dag_network::print_all_dagstats(debug->file, "usr2 ");
 	    signal_usr2 = false;
 	}
 
@@ -1031,40 +990,6 @@ unsigned short network_interface::csum_ipv6_magic(
     sum = csum_partial((unsigned char *)&ph, sizeof(ph), sum);
     return sum;
 }
-
-
-void network_interface::send_dio_all(dag_network *dag)
-{
-    class network_interface *iface = all_if;
-
-    /*
-     * would be more efficient to move build_dio here. because we can
-     * probably build the same DIO message for all interfaces.
-     */
-    while(iface != NULL) {
-	if(iface->is_active()) {
-	    iface->debug->log("iface %s sending dio about dag: %s\n",
-                              iface->if_name, dag->get_dagName());
-	    iface->send_dio(dag);
-	}
-	iface = iface->next;
-    }
-}
-
-/* really, seldom used */
-#if 0
-void network_interface::send_dao_all(dag_network *dag)
-{
-    class network_interface *iface = all_if;
-    while(iface != NULL) {
-	iface->debug->log("iface %s sending dao\n", iface->if_name);
-	if(iface->nd_socket != -1) {
-            dag->send_dao();
-	}
-	iface = iface->next;
-    }
-}
-#endif
 
 /*
  * Local Variables:

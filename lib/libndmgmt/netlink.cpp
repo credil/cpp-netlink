@@ -33,107 +33,23 @@ extern "C" {
 #include <netinet/icmp6.h>
 #include <linux/if.h>           /* for IFNAMSIZ */
 #include <time.h>
-#include "oswlibs.h"
 
 #include <netlink/rt_names.h>
 #include <netlink/utils.h>
 #include <netlink/ll_map.h>
 
-
-#include "rpl.h"
 }
 
 #include "iface.h"
-#include "prefix.h"
 
 struct rtnl_handle* network_interface::netlink_handle = NULL;
 
 class iface_factory basic_factory;
 class iface_factory *iface_maker = &basic_factory;
 
-network_interface *iface_factory::newnetwork_interface(const char *name, rpl_debug *deb)
+network_interface *iface_factory::newnetwork_interface(const char *name, netprog_debug *deb)
 {
     return new network_interface(name, deb);
-}
-
-/* used by addprefix() to change system parameters */
-int network_interface::nisystem(const char *cmd)
-{
-    ::system(cmd);
-
-}
-
-/* used by addprefix() to change system parameters */
-int network_interface::ni_route_show(void)
-{
-    nisystem("ip -6 addr show");
-}
-
-/* this is wrong, use netlink to set the address later on. */
-bool network_interface::addprefix(dag_network *dn _U_,  prefix_node &prefix)
-{
-    char buf[1024];
-    ip_subnet newipv6;
-    const char *viaif = if_name;
-
-    if(prefix.prefix_valid()) {
-        // this would be better, but results in unreachable routes.
-        viaif = "lo";
-        snprintf(buf, 1024,
-                 "ip -6 addr del %s dev %s", prefix.node_name(), viaif);
-        debug->log("  invoking %s\n", buf);
-        nisystem(buf);
-
-        snprintf(buf, 1024,
-                 "ip -6 addr add %s dev %s", prefix.node_name(), viaif);
-
-        debug->log("  invoking %s\n", buf);
-        nisystem(buf);
-        ni_route_show();
-    }
-
-    return true;
-}
-
-/* XXX do this with netlink too  */
-bool network_interface::add_null_route_to_prefix(const ip_subnet &prefix)
-{
-    char buf[1024];
-    char pbuf[SUBNETTOT_BUF];
-
-    subnettot(&prefix, 0, pbuf, sizeof(pbuf));
-
-    snprintf(buf, 1024,
-             "ip -6 route add unreachable %s dev lo", pbuf);
-
-    debug->log("  invoking %s\n", buf);
-    nisystem(buf);
-    ni_route_show();
-}
-
-/* XXX do this with netlink too  */
-bool network_interface::add_route_to_node(const ip_subnet &prefix, rpl_node *peer, const ip_address &src)
-{
-    char buf[1024];
-
-    char pbuf[SUBNETTOT_BUF], tbuf[SUBNETTOT_BUF];
-    char sbuf[SUBNETTOT_BUF];
-
-    prefix_node &n = ipv6_prefix_list[prefix];
-    n.set_prefix(prefix);
-
-    subnettot(&n.prefix_number(), 0, pbuf, sizeof(pbuf));
-    addrtot(&peer->node_address(),  0, tbuf, sizeof(tbuf));
-    addrtot(&src,                 0, sbuf, sizeof(sbuf));
-
-    snprintf(buf, 1024,
-             "ip -6 route add %s via %s dev %s src %s", pbuf, tbuf, if_name, sbuf);
-
-    debug->log("  invoking %s\n", buf);
-    nisystem(buf);
-    ni_route_show();
-
-    return true;
 }
 
 int network_interface::gather_linkinfo(const struct sockaddr_nl *who,
@@ -155,7 +71,7 @@ int network_interface::adddel_ipinfo(const struct sockaddr_nl *who,
                                        struct nlmsghdr *n, void *arg)
 {
     struct network_interface_init *nii = (struct network_interface_init *)arg;
-    rpl_debug *deb = nii->debug;
+    netprog_debug *deb = nii->debug;
     struct ifaddrmsg *iai = (struct ifaddrmsg *)NLMSG_DATA(n);
     struct rtattr * tb[IFA_MAX+1], *addrattr;
     int len = n->nlmsg_len;
@@ -202,8 +118,8 @@ int network_interface::adddel_ipinfo(const struct sockaddr_nl *who,
 
         inet_ntop(AF_INET6, addr, b1, sizeof(b1));
 
-        ni->node = new rpl_node(ni->if_addr);
-        ni->node->debug = deb;
+        //ni->node = new rpl_node(ni->if_addr);
+        //ni->node->debug = deb;
 
         /* log it for human */
         deb->log("found[%d]: %s address=%s\n",
@@ -221,7 +137,7 @@ int network_interface::adddel_linkinfo(const struct sockaddr_nl *who,
                                        struct nlmsghdr *n, void *arg)
 {
     struct network_interface_init *nii = (struct network_interface_init *)arg;
-    rpl_debug *deb = nii->debug;
+    netprog_debug *deb = nii->debug;
     struct ifinfomsg *ifi = (struct ifinfomsg *)NLMSG_DATA(n);
     FILE *fp = stdout;
     struct rtattr * tb[IFLA_MAX+1];
@@ -324,7 +240,7 @@ bool network_interface::open_netlink()
 }
 
 
-void network_interface::scan_devices(rpl_debug *deb, bool setup)
+void network_interface::scan_devices(netprog_debug *deb, bool setup)
 {
 	struct nlmsg_list *linfo = NULL;
 	struct nlmsg_list *ainfo = NULL;

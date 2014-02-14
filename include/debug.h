@@ -1,5 +1,5 @@
-#ifndef _UNSTRUNG_DEBUG_H
-#define _UNSTRUNG_DEBUG_H
+#ifndef _RFC6204D_DEBUG_H
+#define _RFC6204D_DEBUG_H
 
 #define VERBOSE(X) ((X)->debug && (X)->debug->verbose_test())
 
@@ -7,9 +7,9 @@ extern "C" {
 #include <stdarg.h>
 }
 
-class rpl_debug {
+class netprog_debug {
 public:
-        rpl_debug(bool verbose, FILE *out) {
+        netprog_debug(bool verbose, FILE *out) {
                 flag = verbose;
                 file = out;
                 want_time_log = false;
@@ -41,5 +41,5 @@ public:
         void logv_more(const char *fmt, va_list vargs);
 };
 
-#endif /* _UNSTRUNG_DEBUG_H */
+#endif /* _RFC6204D_DEBUG_H */
 

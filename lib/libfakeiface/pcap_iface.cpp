@@ -38,11 +38,11 @@ extern "C" {
 class pcap_iface_factory : public iface_factory {
 public:
     virtual network_interface *newnetwork_interface(const char *name,
-						    rpl_debug *deb);
+						    netprog_debug *deb);
 };
 
 network_interface *pcap_iface_factory::newnetwork_interface(const char *name,
-							    rpl_debug *deb)
+							    netprog_debug *deb)
 {
     return new pcap_network_interface(name, deb);
 }
@@ -52,7 +52,7 @@ class pcap_iface_factory pcap_factory;
 
 
 /* constructor */
-pcap_network_interface::pcap_network_interface(const char *name, rpl_debug *deb) :
+pcap_network_interface::pcap_network_interface(const char *name, netprog_debug *deb) :
     network_interface(name, deb)
 {
     if(debug) {
@@ -211,27 +211,43 @@ void pcap_network_interface::filter_and_receive_icmp6(time_t now,
 	struct ip6_hdr *ip6 = (struct ip6_hdr *)bytes;
 	unsigned int nh = ip6->ip6_nxt;       /* type of next PDU */
 
-	if(nh != IPPROTO_ICMPV6) {
+        switch(nh) {
+        case IPPROTO_ICMPV6:
+            receive_icmp6(now, ip6, len);
+            return;
+
+        case IPPROTO_UDP:
+            receive_udp6(now, ip6, len);
+            return;
+
+        default:
 		debug->warn("packet %u is not ICMPv6, but=proto:%u\n", this->packet_num(), nh);
 		return;
 	}
+}
 
-	bytes += sizeof(struct ip6_hdr);  /* 40 bytes */
-	len   -= sizeof(struct ip6_hdr);
+void pcap_network_interface::receive_udp6(time_t now, const struct ip6_hdr *ip6, unsigned int len)
+{
+}
 
-	struct icmp6_hdr *icmp6 = (struct icmp6_hdr *)bytes;
-	if(icmp6->icmp6_type != ND_ROUTER_SOLICIT &&
-	   icmp6->icmp6_type != ND_ROUTER_ADVERT  &&
-	   icmp6->icmp6_type != ND_NEIGHBOR_SOLICIT &&
-	   icmp6->icmp6_type != ND_NEIGHBOR_ADVERT  &&
-           icmp6->icmp6_type != ND_RPL_MESSAGE) {
-		debug->warn("packet %u is not ICMPv6, but=proto:%u\n",
-		       this->packet_num(), icmp6->icmp6_type);
-		return;
-	}
+void pcap_network_interface::receive_icmp6(time_t now, const struct ip6_hdr *ip6, unsigned int len)
+{
+    const unsigned char *bytes = (const unsigned char *)ip6;
+    bytes += sizeof(struct ip6_hdr);  /* 40 bytes */
+    len   -= sizeof(struct ip6_hdr);
 
-        debug->warn("packet %u is being processed\n", this->packet_num());
-	this->receive_packet(ip6->ip6_src, ip6->ip6_dst, now, bytes, len);
+    struct icmp6_hdr *icmp6 = (struct icmp6_hdr *)bytes;
+    if(icmp6->icmp6_type == ND_ROUTER_SOLICIT &&
+       icmp6->icmp6_type != ND_ROUTER_ADVERT  &&
+       icmp6->icmp6_type != ND_NEIGHBOR_SOLICIT &&
+       icmp6->icmp6_type != ND_NEIGHBOR_ADVERT) {
+        debug->warn("packet %u is not ICMPv6, but=proto:%u\n",
+                    this->packet_num(), icmp6->icmp6_type);
+        return;
+    }
+
+    debug->warn("packet %u is being processed\n", this->packet_num());
+    this->receive_packet(ip6->ip6_src, ip6->ip6_dst, now, bytes, len);
 }
 
 
@@ -310,7 +326,7 @@ void pcap_network_interface::skip_linux_pcap_headers(const struct pcap_pkthdr *h
         this->filter_and_receive_icmp6(h->ts.tv_sec, bytes, len);
 }
 
-void pcap_network_interface::scan_devices(rpl_debug *deb, bool setup)
+void pcap_network_interface::scan_devices(netprog_debug *deb, bool setup)
 {
         /* fix up the factory */
         iface_maker = &pcap_factory;
@@ -489,7 +505,7 @@ int pcap_network_interface::process_infile(const char *ifname,
                                            const char *infile,
                                            const char *outfile)
 {
-        rpl_debug *deb = new rpl_debug(true, stdout);
+        netprog_debug *deb = new netprog_debug(true, stdout);
         pcap_network_interface *ndproc =
             setup_infile_outfile(ifname, infile, outfile, deb);
 
@@ -530,7 +546,7 @@ pcap_network_interface *pcap_network_interface::setup_infile_outfile(
     const char *ifname,
     const char *infile,
     const char *outfile,
-    rpl_debug *debug)
+    netprog_debug *debug)
 {
 	char errbuf[PCAP_ERRBUF_SIZE];
         pcap_t *ppol;

@@ -10,7 +10,7 @@ CXXFLAGS+=-I${INC}
 OSDEP=$(shell uname -s).$(shell arch)
 
 USE_OBJDIR=false
-PANDORA_OBJDIR=${RFC6204D_SRCDIR}/.
+RFC6204D_OBJDIR=${RFC6204D_SRCDIR}/.
 XMLTO=xmlto
 
 MANTREE=${DESTDIR}/usr/share/man
@@ -18,10 +18,12 @@ INSTALL=install
 INSTMANFLAGS=-D
 INSTBINFLAGS=-D
 
-LIBNDMGMT=${PANDORA_OBJDIR}/lib/libndmgmt/libndmgmt.a
-LIBFAKEIFACE=${PANDORA_OBJDIR}/lib/libfakeiface/libfakeiface.a
+LIBNDMGMT=${RFC6204D_OBJDIR}/lib/libndmgmt/libndmgmt.a
+LIBNETLINK=${RFC6204D_OBJDIR}/lib/libnetlink/librfc6204netlink.a
+LIBFAKEIFACE=${RFC6204D_OBJDIR}/lib/libfakeiface/libfakeiface.a
 #LIBPCAP=/usr/local/ia32/lib/libpcap.a
-LIBPCAP=-L/usr/local/ia32/lib -lpcap
+#LIBPCAP=-L/usr/local/ia32/lib -lpcap
+LIBPCAP=-lpcap
 # needed by libpcap
 EXTRALIBS=${LIBPCAP} -L/sandel/lib/i386-linux-gnu -lusb-1.0
 
